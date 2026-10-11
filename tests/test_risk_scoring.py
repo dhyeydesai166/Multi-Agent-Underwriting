@@ -1,4 +1,4 @@
-"""Risk scoring, alone. The score stays on the enriched case."""
+"""Risk scoring, alone. Code sets the score. The model lists factors."""
 
 import json
 
@@ -20,7 +20,7 @@ def test_score_and_factors_are_kept() -> None:
         "risk_factors": ["prior_claim"],
     }))
     result = risk_scoring_agent(enriched, fake)
-    assert result.risk_score == 0.72
+    assert result.risk_score == 0.35
     assert result.risk_factors == ["prior_claim"]
     assert result.extra_facts[0].fact == "prior_claim"
     assert fake.calls == 1

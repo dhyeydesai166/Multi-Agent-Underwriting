@@ -31,7 +31,7 @@ The queues are that plumbing. A later step cannot start until the previous step 
 |---|---|---|---|
 | Intake | The raw form only: `applicant_id`, `full_name`, `age`, `coverage_amount` | A clean application, plus any missing fields | Enrichment, the score, the decision |
 | Enrichment | The intake message, plus matching rows in `data/applicant_records.json` | That application plus extra facts copied from the file | A shared case file, the score, the decision |
-| Risk scoring | The enrichment message only | A score from 0 to 1, reasons, and the extra facts copied forward | The records file, the decision |
+| Risk scoring | The enrichment message only | A score from 0 to 1 computed in code, reasons listed by the model, and the extra facts copied forward | The records file, the decision |
 | Recommendation | The risk message only | `approve`, `deny`, or `refer`, plus a reason written by the model | Any field that was not on the risk message |
 
 A fact that is not in the records file is not added. An unknown applicant id produces an empty fact list.
@@ -47,6 +47,18 @@ Code sets the final word. The model writes the reason.
 5. Otherwise a score of `0.7` or higher means `approve`, and a score below `0.7` means `deny`.
 
 `0.7` is `APPROVE_AT` in config. It can be changed there.
+
+## How the score is computed
+
+Code sets `risk_score`. The model may list factors. It does not choose the number.
+
+The score starts at `0.50`.
+
+- Age 18–25 adds `0.05`. Age 26–45 adds `0.20`. Age 46–60 adds `0.10`. Age 61–120 adds `0.00`.
+- Coverage up to `50000` adds `0.25`. Up to `200000` adds `0.15`. Up to `400000` adds `0.05`. Above that adds `0.00`.
+- `prior_claim` subtracts `0.25`. `hazardous_occupation` subtracts `0.15`. `recent_lapse` subtracts `0.30`.
+
+The result is kept between 0 and 1 and rounded to two decimals. On the three sample cases that is `0.80` for APP-1001, `0.35` for APP-1002, and `0.30` for APP-1003. The facts above still set refer or deny before this number is used.
 
 ## Budgets, written before code
 

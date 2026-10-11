@@ -48,4 +48,4 @@ Unit tests use a fake model. They do not need Ollama.
 - Enrichment reads only `data/applicant_records.json`. There is no database.
 - Cost is `$0.00` per case because the model is local. A hosted model would bill differently.
 - Three live cases show direction only. They are not a production accuracy rate.
-- A person waiting on a screen needs an answer in 5 seconds. These cases took about 12 to 17 seconds, so the pipeline fits an overnight batch.
+- A person waiting on a screen needs an answer in 5 seconds. These cases took about 12 to 15 seconds, so the pipeline fits an overnight batch.
