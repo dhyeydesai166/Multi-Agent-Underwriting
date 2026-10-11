@@ -57,3 +57,10 @@ def test_intake_rejects_before_model(overrides: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         intake_agent(_form(**overrides), fake)
     assert fake.calls == 0
+
+
+def test_intake_rejects_a_reply_that_is_not_json() -> None:
+    fake = FakeClient("not json")
+    with pytest.raises(ValueError, match="intake output failed validation"):
+        intake_agent(_form(), fake)
+    assert fake.calls == 1

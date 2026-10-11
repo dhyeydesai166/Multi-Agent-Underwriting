@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from tests.fakes import FakeClient
 from underwriting.agents.recommendation import recommendation_agent
 from underwriting.schemas import Fact, RiskResult
@@ -54,3 +56,20 @@ def test_recent_lapse_is_deny_even_with_high_score() -> None:
 def test_score_at_cutoff_is_approve() -> None:
     result = recommendation_agent(_risk(0.7, []), _fake("deny"))
     assert result.decision == "approve"
+
+
+def test_recommendation_rejects_a_reply_that_is_not_json() -> None:
+    with pytest.raises(ValueError, match="output failed validation"):
+        recommendation_agent(_risk(0.82, []), FakeClient("not json"))
+
+
+def test_recommendation_rejects_a_missing_reason() -> None:
+    fake = FakeClient(json.dumps({"decision": "approve"}))
+    with pytest.raises(ValueError, match="output failed validation"):
+        recommendation_agent(_risk(0.82, []), fake)
+
+
+def test_recommendation_rejects_a_blank_reason() -> None:
+    fake = FakeClient(json.dumps({"decision": "approve", "reason": "   "}))
+    with pytest.raises(ValueError, match="reason is required"):
+        recommendation_agent(_risk(0.82, []), fake)
