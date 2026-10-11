@@ -41,8 +41,10 @@ A fact that is not in the records file is not added. An unknown applicant id pro
 Code sets the final word. The model writes the reason.
 
 1. A `prior_claim` on the risk message means `refer`. A prior claim means this person has filed an insurance claim before.
-2. A timeout or a failed check after one retry means `refer`. No score is invented.
-3. Otherwise a score of `0.7` or higher means `approve`, and a score below `0.7` means `deny`.
+2. A `hazardous_occupation` on the risk message means `refer`. That is a job with a higher chance of a claim, so a person reviews it.
+3. A `recent_lapse` on the risk message means `deny`, including when the score is `0.7` or higher. A lapsed policy is not approved.
+4. A timeout or a failed check after one retry means `refer`. No score is invented.
+5. Otherwise a score of `0.7` or higher means `approve`, and a score below `0.7` means `deny`.
 
 `0.7` is `APPROVE_AT` in config. It can be changed there.
 

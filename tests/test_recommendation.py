@@ -39,6 +39,18 @@ def test_prior_claim_is_refer_even_with_high_score() -> None:
     assert result.decision == "refer"
 
 
+def test_hazardous_occupation_is_refer_even_with_high_score() -> None:
+    facts = [Fact(fact="hazardous_occupation", source="applicant_records.json")]
+    result = recommendation_agent(_risk(0.90, facts), _fake("approve"))
+    assert result.decision == "refer"
+
+
+def test_recent_lapse_is_deny_even_with_high_score() -> None:
+    facts = [Fact(fact="recent_lapse", source="applicant_records.json")]
+    result = recommendation_agent(_risk(0.90, facts), _fake("approve"))
+    assert result.decision == "deny"
+
+
 def test_score_at_cutoff_is_approve() -> None:
     result = recommendation_agent(_risk(0.7, []), _fake("deny"))
     assert result.decision == "approve"

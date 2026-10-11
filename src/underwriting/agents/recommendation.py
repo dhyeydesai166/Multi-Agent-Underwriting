@@ -13,8 +13,13 @@ Decision = Literal["approve", "deny", "refer"]
 
 
 def decide(risk: RiskResult) -> Decision:
-    if any(fact.fact == "prior_claim" for fact in risk.extra_facts):
+    names = {fact.fact for fact in risk.extra_facts}
+    if "prior_claim" in names:
         return "refer"
+    if "hazardous_occupation" in names:
+        return "refer"
+    if "recent_lapse" in names:
+        return "deny"
     if risk.risk_score >= APPROVE_AT:
         return "approve"
     return "deny"

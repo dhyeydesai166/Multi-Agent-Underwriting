@@ -31,6 +31,32 @@ def test_drops_invented_fact() -> None:
     assert result.extra_facts[0].source == "applicant_records.json"
 
 
+def test_hazardous_occupation_comes_from_the_file() -> None:
+    fake = FakeClient(json.dumps({
+        "extra_facts": [
+            {"fact": "hazardous_occupation", "source": "applicant_records.json"},
+            {"fact": "bankruptcy", "source": "model"},
+        ],
+    }))
+    result = enrichment_agent(_intake("APP-1001"), fake)
+    assert len(result.extra_facts) == 1
+    assert result.extra_facts[0].fact == "hazardous_occupation"
+    assert result.extra_facts[0].source == "applicant_records.json"
+
+
+def test_recent_lapse_comes_from_the_file() -> None:
+    fake = FakeClient(json.dumps({
+        "extra_facts": [
+            {"fact": "recent_lapse", "source": "applicant_records.json"},
+            {"fact": "bankruptcy", "source": "model"},
+        ],
+    }))
+    result = enrichment_agent(_intake("APP-1003"), fake)
+    assert len(result.extra_facts) == 1
+    assert result.extra_facts[0].fact == "recent_lapse"
+    assert result.extra_facts[0].source == "applicant_records.json"
+
+
 def test_unknown_id_has_no_facts() -> None:
     fake = FakeClient(json.dumps({
         "extra_facts": [{"fact": "bankruptcy", "source": "model"}],
