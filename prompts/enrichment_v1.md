@@ -11,7 +11,7 @@ The user message holds the intake record and the records-file rows between `<cas
 ## Constraints
 
 - Each extra fact is a copy of a row inside the marked records list.
-- `source` on every extra fact is `applicant_records.json`.
+- `source` on every extra fact is `underwriting.db`.
 - When the marked records list is empty, `extra_facts` is an empty list.
 
 ## Output

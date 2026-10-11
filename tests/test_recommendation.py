@@ -5,7 +5,7 @@ import json
 import pytest
 
 from tests.fakes import FakeClient
-from underwriting.agents.recommendation import recommendation_agent
+from underwriting.agents.recommendation import PROMPT, recommendation_agent
 from underwriting.schemas import Fact, RiskResult
 
 
@@ -36,19 +36,19 @@ def test_low_score_without_claim_is_deny() -> None:
 
 
 def test_prior_claim_is_refer_even_with_high_score() -> None:
-    facts = [Fact(fact="prior_claim", source="applicant_records.json")]
+    facts = [Fact(fact="prior_claim", source="underwriting.db")]
     result = recommendation_agent(_risk(0.90, facts), _fake("approve"))
     assert result.decision == "refer"
 
 
 def test_hazardous_occupation_is_refer_even_with_high_score() -> None:
-    facts = [Fact(fact="hazardous_occupation", source="applicant_records.json")]
+    facts = [Fact(fact="hazardous_occupation", source="underwriting.db")]
     result = recommendation_agent(_risk(0.90, facts), _fake("approve"))
     assert result.decision == "refer"
 
 
 def test_recent_lapse_is_deny_even_with_high_score() -> None:
-    facts = [Fact(fact="recent_lapse", source="applicant_records.json")]
+    facts = [Fact(fact="recent_lapse", source="underwriting.db")]
     result = recommendation_agent(_risk(0.90, facts), _fake("approve"))
     assert result.decision == "deny"
 
@@ -67,6 +67,10 @@ def test_recommendation_rejects_a_missing_reason() -> None:
     fake = FakeClient(json.dumps({"decision": "approve"}))
     with pytest.raises(ValueError, match="output failed validation"):
         recommendation_agent(_risk(0.82, []), fake)
+
+
+def test_the_prompt_says_a_higher_score_is_safer() -> None:
+    assert "A higher `risk_score` is safer." in PROMPT
 
 
 def test_recommendation_rejects_a_blank_reason() -> None:

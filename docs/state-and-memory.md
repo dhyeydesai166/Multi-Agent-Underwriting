@@ -30,11 +30,11 @@ The queues are that plumbing. A later step cannot start until the previous step 
 | Agent | Reads | Writes | Does not see |
 |---|---|---|---|
 | Intake | The raw form only: `applicant_id`, `full_name`, `age`, `coverage_amount` | A clean application, plus any missing fields | Enrichment, the score, the decision |
-| Enrichment | The intake message, plus matching rows in `data/applicant_records.json` | That application plus extra facts copied from the file | A shared case file, the score, the decision |
+| Enrichment | The intake message, plus matching rows in `data/underwriting.db` | That application plus extra facts copied from the database | A shared case file, the score, the decision |
 | Risk scoring | The enrichment message only | A score from 0 to 1 computed in code, reasons listed by the model, and the extra facts copied forward | The records file, the decision |
 | Recommendation | The risk message only | `approve`, `deny`, or `refer`, plus a reason written by the model | Any field that was not on the risk message |
 
-A fact that is not in the records file is not added. An unknown applicant id produces an empty fact list.
+A fact that is not in the database is not added. An unknown applicant id produces an empty fact list.
 
 ## Decision rule
 

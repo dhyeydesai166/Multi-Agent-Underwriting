@@ -15,7 +15,7 @@ def test_score_and_factors_are_kept() -> None:
         full_name="Grace Hopper",
         age=52,
         coverage_amount=500000,
-        extra_facts=[Fact(fact="prior_claim", source="applicant_records.json")],
+        extra_facts=[Fact(fact="prior_claim", source="underwriting.db")],
     )
     fake = FakeClient(json.dumps({
         "risk_score": 0.72,
@@ -34,7 +34,7 @@ def _grace() -> EnrichmentResult:
         full_name="Grace Hopper",
         age=52,
         coverage_amount=500000,
-        extra_facts=[Fact(fact="prior_claim", source="applicant_records.json")],
+        extra_facts=[Fact(fact="prior_claim", source="underwriting.db")],
     )
 
 

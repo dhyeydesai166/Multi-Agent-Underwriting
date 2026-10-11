@@ -8,3 +8,4 @@ __pycache__/
 .env
 images/ 
 underwriting-lab-writeup.docx
+data/underwriting.db

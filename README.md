@@ -14,6 +14,12 @@ OLLAMA_HOST=http://host.docker.internal:11434 .venv/bin/python scripts/run_three
 
 `OLLAMA_HOST` defaults to `http://localhost:11434`. Inside this container, Ollama is on the host, so use the `host.docker.internal` address above. The model is `gemma3:12b`.
 
+Type one application. A bad field is asked again before the model runs:
+
+```bash
+OLLAMA_HOST=http://host.docker.internal:11434 .venv/bin/python scripts/run_application.py
+```
+
 The timeout demo does not call Ollama:
 
 ```bash
@@ -45,7 +51,7 @@ Unit tests use a fake model. They do not need Ollama.
 ## Known limitations
 
 - The queues live in memory and are empty when the run ends. They are not a broker.
-- Enrichment reads only `data/applicant_records.json`. There is no database.
+- Enrichment reads `data/underwriting.db`. That file is built from `data/schema.sql` and `data/seed.sql` the first time a case is looked up.
 - Cost is `$0.00` per case because the model is local. A hosted model would bill differently.
 - Three live cases show direction only. They are not a production accuracy rate.
 - A person waiting on a screen needs an answer in 5 seconds. These cases took about 12 to 15 seconds, so the pipeline fits an overnight batch.

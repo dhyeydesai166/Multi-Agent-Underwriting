@@ -8,7 +8,7 @@ from underwriting.llm import LlmClient
 from underwriting.prompt_loader import load_prompt, wrap_untrusted
 from underwriting.schemas import RecommendationResult, RiskResult
 
-PROMPT = load_prompt("recommendation_v1.md")
+PROMPT = load_prompt("recommendation_v2.md")
 Decision = Literal["approve", "deny", "refer"]
 
 
