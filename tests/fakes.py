@@ -21,6 +21,7 @@ class FakeClient:
         system: str,
         user: str,
         applicant_id: str,
+        agent_name: str = "",
     ) -> LlmResponse:
         self.calls += 1
         return LlmResponse(
@@ -50,6 +51,7 @@ class ScriptedClient:
         system: str,
         user: str,
         applicant_id: str,
+        agent_name: str = "",
     ) -> LlmResponse:
         text = self.texts[self.calls]
         self.calls += 1

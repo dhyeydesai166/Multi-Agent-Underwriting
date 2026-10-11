@@ -22,6 +22,7 @@ class LlmClient(Protocol):
         system: str,
         user: str,
         applicant_id: str,
+        agent_name: str = "",
     ) -> LlmResponse:
         """Return the model text and the provider token counts."""
 
@@ -45,10 +46,14 @@ class OllamaClient:
         system: str,
         user: str,
         applicant_id: str,
+        agent_name: str = "",
     ) -> LlmResponse:
-        if applicant_id == TIMEOUT_APPLICANT_ID:
+        if (
+            applicant_id == TIMEOUT_APPLICANT_ID
+            and agent_name == "risk_scoring_agent"
+        ):
             raise TimeoutError(
-                f"{applicant_id} timed out before the model call"
+                f"{applicant_id} risk scoring timed out before the model call"
             )
         payload = {
             "model": self.model,
@@ -82,4 +87,39 @@ class OllamaClient:
             text=text,
             input_tokens=int(body.get("prompt_eval_count", 0)),
             output_tokens=int(body.get("eval_count", 0)),
+        )
+
+
+class FailureDemoClient(OllamaClient):
+    """Earlier steps stay local. Risk scoring uses OllamaClient and times out."""
+
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        applicant_id: str,
+        agent_name: str = "",
+    ) -> LlmResponse:
+        if agent_name == "risk_scoring_agent":
+            return super().complete(
+                system=system,
+                user=user,
+                applicant_id=applicant_id,
+                agent_name=agent_name,
+            )
+        if agent_name == "intake_agent":
+            body = {
+                "applicant_id": applicant_id,
+                "full_name": "Timeout Case",
+                "age": 40,
+                "coverage_amount": 10000,
+                "missing_fields": [],
+            }
+        else:
+            body = {"extra_facts": []}
+        return LlmResponse(
+            text=json.dumps(body),
+            input_tokens=1,
+            output_tokens=1,
         )

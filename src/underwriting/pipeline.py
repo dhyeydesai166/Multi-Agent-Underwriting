@@ -1,8 +1,7 @@
 """Hand each finished message to the next queue. No shared case file."""
 
-import time
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
+from typing import Any, Callable
 
 from pydantic import BaseModel
 
@@ -12,6 +11,7 @@ from underwriting.agents.recommendation import recommendation_agent
 from underwriting.agents.risk import risk_scoring_agent
 from underwriting.llm import LlmClient
 from underwriting.queues import MessageQueue
+from underwriting.retry import call_with_retry
 from underwriting.schemas import (
     EnrichmentResult,
     IntakeResult,
@@ -41,11 +41,13 @@ class _Usage:
         system: str,
         user: str,
         applicant_id: str,
+        agent_name: str = "",
     ) -> Any:
         response = self.inner.complete(
             system=system,
             user=user,
             applicant_id=applicant_id,
+            agent_name=agent_name,
         )
         self.input_tokens += response.input_tokens
         self.output_tokens += response.output_tokens
@@ -63,6 +65,8 @@ def _record(
     input_tokens: int,
     output_tokens: int,
     queue_depth: int,
+    attempt: int,
+    error: str | None,
 ) -> TraceStep:
     return TraceStep(
         step=step,
@@ -76,101 +80,158 @@ def _record(
         output_tokens=output_tokens,
         tokens_used=input_tokens + output_tokens,
         cost_usd=step_cost(input_tokens, output_tokens),
-        attempt=1,
-        error=None,
+        attempt=attempt,
+        error=error,
         queue_depth=queue_depth,
     )
 
 
+def _depths(
+    received: MessageQueue,
+    enriched_q: MessageQueue,
+    assessed: MessageQueue,
+) -> dict[str, int]:
+    return {
+        received.name: received.depth(),
+        enriched_q.name: enriched_q.depth(),
+        assessed.name: assessed.depth(),
+    }
+
+
+def _run_step(
+    usage: _Usage,
+    traces: list[TraceStep],
+    step: str,
+    agent: str,
+    source: str,
+    received: dict[str, Any],
+    action: Callable[[], Any],
+    queue_depth: int,
+) -> Any:
+    before_in = usage.input_tokens
+    before_out = usage.output_tokens
+    rows = call_with_retry(action)
+    result = None
+    for row in rows:
+        produced = {}
+        if row.result is not None and hasattr(row.result, "model_dump"):
+            produced = row.result.model_dump()
+            result = row.result
+        traces.append(_record(
+            step,
+            agent,
+            source,
+            received,
+            produced,
+            row.started,
+            row.elapsed_s,
+            usage.input_tokens - before_in,
+            usage.output_tokens - before_out,
+            queue_depth,
+            row.attempt,
+            row.error,
+        ))
+        before_in = usage.input_tokens
+        before_out = usage.output_tokens
+    if rows[-1].error is not None:
+        return None
+    return result
+
+
 def run_case(raw: RawApplication, llm: LlmClient) -> CaseResult:
     usage = _Usage(llm)
-    received = MessageQueue("application_received")
+    received_q = MessageQueue("application_received")
     enriched_q = MessageQueue("enrichment_complete")
     assessed = MessageQueue("risk_assessed")
     traces: list[TraceStep] = []
 
-    before_in, before_out = usage.input_tokens, usage.output_tokens
-    started = datetime.now(timezone.utc)
-    clock = time.perf_counter()
-    intake = intake_agent(raw, usage)
-    received.put(intake.model_dump())
-    traces.append(_record(
+    intake = _run_step(
+        usage,
+        traces,
         "intake",
         "intake_agent",
         "user",
         raw.model_dump(),
-        intake.model_dump(),
-        started,
-        time.perf_counter() - clock,
-        usage.input_tokens - before_in,
-        usage.output_tokens - before_out,
-        received.depth(),
-    ))
+        lambda: intake_agent(raw, usage),
+        0,
+    )
+    if intake is None:
+        return _refer(raw, traces, received_q, enriched_q, assessed, "intake_agent")
+    received_q.put(intake.model_dump())
+    traces[-1].queue_depth = received_q.depth()
 
-    intake_message = IntakeResult.model_validate(received.get())
-    before_in, before_out = usage.input_tokens, usage.output_tokens
-    started = datetime.now(timezone.utc)
-    clock = time.perf_counter()
-    enriched = enrichment_agent(intake_message, usage)
-    enriched_q.put(enriched.model_dump())
-    traces.append(_record(
+    intake_message = IntakeResult.model_validate(received_q.get())
+    enriched = _run_step(
+        usage,
+        traces,
         "enrichment",
         "enrichment_agent",
         "application_received",
         intake_message.model_dump(),
-        enriched.model_dump(),
-        started,
-        time.perf_counter() - clock,
-        usage.input_tokens - before_in,
-        usage.output_tokens - before_out,
-        enriched_q.depth(),
-    ))
+        lambda: enrichment_agent(intake_message, usage),
+        0,
+    )
+    if enriched is None:
+        return _refer(
+            raw, traces, received_q, enriched_q, assessed, "enrichment_agent"
+        )
+    enriched_q.put(enriched.model_dump())
+    traces[-1].queue_depth = enriched_q.depth()
 
     enrichment_message = EnrichmentResult.model_validate(enriched_q.get())
-    before_in, before_out = usage.input_tokens, usage.output_tokens
-    started = datetime.now(timezone.utc)
-    clock = time.perf_counter()
-    scored = risk_scoring_agent(enrichment_message, usage)
-    assessed.put(scored.model_dump())
-    traces.append(_record(
+    scored = _run_step(
+        usage,
+        traces,
         "risk_assessment",
         "risk_scoring_agent",
         "enrichment_complete",
         enrichment_message.model_dump(),
-        scored.model_dump(),
-        started,
-        time.perf_counter() - clock,
-        usage.input_tokens - before_in,
-        usage.output_tokens - before_out,
-        assessed.depth(),
-    ))
+        lambda: risk_scoring_agent(enrichment_message, usage),
+        0,
+    )
+    if scored is None:
+        return _refer(
+            raw, traces, received_q, enriched_q, assessed, "risk_scoring_agent"
+        )
+    assessed.put(scored.model_dump())
+    traces[-1].queue_depth = assessed.depth()
 
     risk_message = RiskResult.model_validate(assessed.get())
-    before_in, before_out = usage.input_tokens, usage.output_tokens
-    started = datetime.now(timezone.utc)
-    clock = time.perf_counter()
-    recommendation = recommendation_agent(risk_message, usage)
-    traces.append(_record(
+    recommendation = _run_step(
+        usage,
+        traces,
         "recommendation",
         "recommendation_agent",
         "risk_assessed",
         risk_message.model_dump(),
-        recommendation.model_dump(),
-        started,
-        time.perf_counter() - clock,
-        usage.input_tokens - before_in,
-        usage.output_tokens - before_out,
+        lambda: recommendation_agent(risk_message, usage),
         assessed.depth(),
-    ))
-
+    )
+    if recommendation is None:
+        return _refer(
+            raw, traces, received_q, enriched_q, assessed, "recommendation_agent"
+        )
     return CaseResult(
         applicant_id=raw.applicant_id,
         decision=recommendation.decision,
         reason=recommendation.reason,
         traces=traces,
-        queue_depths={
-            received.name: received.depth(),
-            enriched_q.name: enriched_q.depth(),
-            assessed.name: assessed.depth(),
-        },
+        queue_depths=_depths(received_q, enriched_q, assessed),
+    )
+
+
+def _refer(
+    raw: RawApplication,
+    traces: list[TraceStep],
+    received_q: MessageQueue,
+    enriched_q: MessageQueue,
+    assessed: MessageQueue,
+    agent: str,
+) -> CaseResult:
+    return CaseResult(
+        applicant_id=raw.applicant_id,
+        decision="refer",
+        reason=f"{agent} did not respond after retry",
+        traces=traces,
+        queue_depths=_depths(received_q, enriched_q, assessed),
     )

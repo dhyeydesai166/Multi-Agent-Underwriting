@@ -14,6 +14,7 @@ def risk_scoring_agent(enriched: EnrichmentResult, llm: LlmClient) -> RiskResult
         system=PROMPT,
         user=wrap_untrusted("case", enriched.model_dump_json()),
         applicant_id=enriched.applicant_id,
+        agent_name="risk_scoring_agent",
     )
     try:
         data = json.loads(response.text)

@@ -26,6 +26,7 @@ def intake_agent(raw: RawApplication, llm: LlmClient) -> IntakeResult:
         system=PROMPT,
         user=wrap_untrusted("application", raw.model_dump_json()),
         applicant_id=raw.applicant_id,
+        agent_name="intake_agent",
     )
     try:
         return IntakeResult.model_validate(json.loads(response.text))

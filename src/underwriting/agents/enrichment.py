@@ -20,6 +20,7 @@ def enrichment_agent(intake: IntakeResult, llm: LlmClient) -> EnrichmentResult:
         system=PROMPT,
         user=wrap_untrusted("case", json.dumps(payload)),
         applicant_id=intake.applicant_id,
+        agent_name="enrichment_agent",
     )
     try:
         json.loads(response.text)

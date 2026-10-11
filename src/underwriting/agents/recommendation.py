@@ -25,6 +25,7 @@ def recommendation_agent(risk: RiskResult, llm: LlmClient) -> RecommendationResu
         system=PROMPT,
         user=wrap_untrusted("case", risk.model_dump_json()),
         applicant_id=risk.applicant_id,
+        agent_name="recommendation_agent",
     )
     try:
         data = json.loads(response.text)
