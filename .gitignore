@@ -9,3 +9,5 @@ __pycache__/
 images/ 
 underwriting-lab-writeup.docx
 data/underwriting.db
+submitted-project.md
+.coverage
